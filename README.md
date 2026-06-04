@@ -119,6 +119,13 @@ Part of the **SuperInstance** ternary computing ecosystem:
 - [`ternary-game-theory`](https://crates.io/crates/ternary-game-theory) — ternary game theory
 - [`ternary-control`](https://crates.io/crates/ternary-control) — ternary control theory
 
+## Known Limitations
+
+- **AC-3 only processes binary constraints**: Unary constraints (`Constraint::Unary`) and `AllDifferent` constraints are only applied during backtracking search — the `ac3()` function ignores them entirely. This means AC-3 alone may leave domains larger than they could be.
+- **No forward checking**: During backtracking, the solver doesn't prune neighbor domains after each assignment, only backtracks on domain exhaustion. This can be slower than forward-checking solvers.
+- **Small domain size**: With only 3 possible values per variable, constraint propagation has limited pruning power. Most real constraint satisfaction happens at larger domain sizes.
+- **Dense constraint storage**: All constraints are stored in a flat `Vec` with linear scan for arc lookup — O(n) per constraint check rather than O(1) indexed access.
+
 ## License
 
 MIT
