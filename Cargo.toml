@@ -1,0 +1,6 @@
+[package]
+name = "ternary-constraint"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "Constraint satisfaction and propagation for ternary variables"
