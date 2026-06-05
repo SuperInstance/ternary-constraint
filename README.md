@@ -129,3 +129,11 @@ Part of the **SuperInstance** ternary computing ecosystem:
 ## License
 
 MIT
+
+## See Also
+- **ternary-scheduling** — related
+- **ternary-planning** — related
+- **ternary-optimization** — related
+- **ternary-logic** — related
+- **ternary-search** — related
+
