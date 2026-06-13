@@ -70,6 +70,19 @@ Constraint satisfaction is used in **SuperInstance** for fleet resource allocati
 - Russell, Stuart & Norvig, Peter. *Artificial Intelligence: A Modern Approach*, 4th ed., 2020 — CSP backtracking search.
 - Dechter, Rina. *Constraint Processing*, Morgan Kaufmann, 2003 — comprehensive CSP theory.
 
+
+
+## Complexity Summary
+
+| Operation | Time | Space |
+|---|---|---|
+| AC-3 propagation | O(e × d³) = O(e) | O(e) |
+| revise(Xi, Xj) | O(d²) = O(9) = O(1) | O(1) |
+| Backtracking | O(3ⁿ) worst case | O(n) |
+| Domain operations | O(1) per op | O(1) |
+
+For ternary CSPs, d = 3, making propagation extremely fast. Most practical problems with good constraint structure solve in near-linear time after AC-3 pruning.
+
 ## License
 
 MIT
