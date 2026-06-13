@@ -1,85 +1,74 @@
-# ternary-constraint
+# Ternary Constraint — Constraint Satisfaction and Propagation for Ternary Variables
 
-**Constraint satisfaction and propagation for ternary variables**
+**Ternary Constraint** implements a constraint satisfaction problem (CSP) solver for variables with ternary domains {-1, 0, +1}. It provides arc-consistency propagation, backtracking search, and support for both binary and unary constraints. The ternary domain is small (|D| = 3), making propagation extremely efficient — each variable can lose at most 2 values before being forced.
 
-[![ternary](https://img.shields.io/badge/ecosystem-ternary-blue)](https://github.com/orgs/SuperInstance/repositories?q=ternary)
-[![tests](https://img.shields.io/badge/tests-21-green)]()
+## Why It Matters
 
-## Overview
+CSPs are the backbone of scheduling, configuration, and resource allocation problems. When variables have ternary domains, the search space is 3ⁿ for n variables — exponentially large but with a smaller base than boolean CSPs (2ⁿ). The key advantage: ternary domains naturally model three-way decisions (accept/reject/abstain, increase/hold/decrease, active/idle/standby). This crate enables fleet resource scheduling where each allocation decision is ternary: assign (+1), do not assign (-1), or defer (0). Arc-consistency propagation prunes the search space aggressively, often solving problems without any backtracking.
 
-Constraint satisfaction and propagation for ternary variables.
+## How It Works
 
-## Architecture
+### TernaryDomain
 
-- **`TernaryDomain`** — core data structure
-- **`BinaryConstraint`** — core data structure
-- **`TernaryCSP`** — core data structure
-- **`ArcConsistency`** — core data structure
-- **`BacktrackingSearch`** — core data structure
-- **`Constraint`** — state enumeration
+Each variable's domain is a subset of {-1, 0, +1}. The `TernaryDomain` type supports `full()` (all three values), `single(v)` (one value), `from_vec()` (arbitrary subset), and set operations: `intersect()`, `union()`, `remove()`. Domain operations are O(1) since the maximum size is 3.
 
-### Key Functions
+### Constraint Propagation
 
-- `full()`
-- `single()`
-- `from_vec()`
-- `is_empty()`
-- `is_singleton()`
-- `size()`
-- `contains()`
-- `values()`
-- `remove()`
-- `intersect()`
-- ... and 14 more
+The solver enforces **arc consistency (AC-3)**: for each constraint between variables X and Y, every value in X's domain must have at least one supporting value in Y's domain. The AC-3 algorithm uses a queue of arcs to revise:
 
-## Why Ternary?
-
-The balanced ternary system {-1, 0, +1} (also known as Z₃) is the mathematically optimal discrete encoding:
-- **More expressive than binary**: three states capture positive, neutral, and negative
-- **Natural for decisions**: accept/reject/abstain, buy/hold/sell, agree/disagree/neutral
-- **Self-balancing**: the 0 state acts as a universal screen, preventing pathological lock-in
-- **Z₃ cyclic dynamics**: rock-paper-scissors is the only natural coordination mechanism
-
-## Stats
-
-| Metric | Value |
-|--------|-------|
-| Lines of Rust | 732 |
-| Test count | 21 |
-| Public types | 6 |
-| Public functions | 24 |
-
-## Ecosystem
-
-This crate is part of the **[SuperInstance Ternary Fleet](https://github.com/orgs/SuperInstance/repositories?q=ternary)**:
-
-- **[ternary-core](https://github.com/SuperInstance/ternary-core)** — shared traits and Z₃ arithmetic
-- **[ternary-grid](https://github.com/SuperInstance/ternary-grid)** — spatial grid with {-1, 0, +1} cells
-- **[ternary-graph](https://github.com/SuperInstance/ternary-graph)** — ternary-weighted graph algorithms
-- **[ternary-automata](https://github.com/SuperInstance/ternary-automata)** — three-state cellular automata
-- **[ternary-compiler](https://github.com/SuperInstance/ternary-compiler)** — expression compiler and optimizer
-
-200+ crates. 4,300+ tests. One pattern.
-
-## Research Context
-
-The ternary approach connects to several active research areas:
-- **Ternary Neural Networks** (TNNs): weights constrained to {-1, 0, +1} for efficient inference
-- **Huawei's ternary chip**: 7nm ternary silicon with 60% less power consumption
-- **Active inference**: free energy minimization naturally maps to ternary action selection
-- **Cyclic dominance**: RPS dynamics maintain biodiversity in spatial ecology
-- **Z₃ group theory**: the only algebraic group on three elements is cyclic addition mod 3
-
-## Usage
-
-```toml
-[dependencies]
-ternary-constraint = "0.1.0"
 ```
+AC-3(csp):
+  queue ← all arcs
+  while queue not empty:
+    (Xi, Xj) ← queue.pop()
+    if revise(csp, Xi, Xj):
+      if domain(Xi) is empty: return FAILURE
+      for each Xk neighbor of Xi (except Xj):
+        queue.push((Xk, Xi))
+  return SUCCESS
+```
+
+Each `revise()` call is O(d²) where d = |D| ≤ 3, so O(9) = O(1). The total AC-3 runtime is O(e × d³) where e is the number of constraints — O(27e) = O(e) for ternary.
+
+### Backtracking Search
+
+When arc consistency alone cannot solve the CSP (domains are non-empty but not singletons), the solver selects the most-constrained variable (minimum remaining values heuristic), assigns a value, propagates, and recurses. Worst-case O(3ⁿ), but with good propagation, typical performance is near-linear.
+
+## Quick Start
 
 ```rust
-use ternary_constraint;
+use ternary_constraint::{TernaryDomain, TernaryCSP};
+
+let mut csp = TernaryCSP::new();
+csp.add_variable("x", TernaryDomain::full());
+csp.add_variable("y", TernaryDomain::full());
+csp.add_binary_constraint("x", "y", |a, b| a != b); // x ≠ y
+
+let solution = csp.solve().expect("solution exists");
+assert_ne!(solution["x"], solution["y"]);
 ```
+
+```bash
+cargo add ternary-constraint
+```
+
+## API
+
+| Type / Function | Description |
+|---|---|
+| `TernaryDomain` | Subset of {-1, 0, +1}: `full()`, `single(v)`, `intersect()`, `union()` |
+| `BinaryConstraint` | `fn(i8, i8) -> bool` — compatibility predicate |
+| `TernaryCSP` | Variables + constraints with `solve()`, `add_variable()`, `add_binary_constraint()` |
+
+## Architecture Notes
+
+Constraint satisfaction is used in **SuperInstance** for fleet resource allocation: which GPU nodes get which ternary workloads. The γ + η = C conservation law is itself a constraint: total compute allocation γ plus idle overhead η must equal fleet capacity C. See [Architecture](https://github.com/SuperInstance/SuperInstance/blob/main/ARCHITECTURE.md).
+
+## References
+
+- Mackworth, Alan K. "Consistency in Networks of Relations," *Artificial Intelligence*, 8(1), 1977 — arc consistency (AC-3).
+- Russell, Stuart & Norvig, Peter. *Artificial Intelligence: A Modern Approach*, 4th ed., 2020 — CSP backtracking search.
+- Dechter, Rina. *Constraint Processing*, Morgan Kaufmann, 2003 — comprehensive CSP theory.
 
 ## License
 
